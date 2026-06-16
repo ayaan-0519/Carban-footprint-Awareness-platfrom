@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ecostep – Carbon Footprint Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    /* ── RESET & BASE ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: #080f08; height: 100%; font-family: 'Space Grotesk', sans-serif; color: #ddeedd; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+    /* ── ROOT ── */
+    #app {
+      min-height: 100vh; background: #080f08;
+      max-width: 430px; margin: 0 auto;
+      position: relative; padding-bottom: 90px;
+    }
+
+    /* ── TOAST ── */
+    #toast-container {
+      position: fixed; top: 16px; right: 16px; z-index: 999;
+      display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+    }
+    .toast {
+      padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+      animation: toastIn 0.25s ease; box-shadow: 0 4px 20px #00000060;
+    }
+    .toast.success { background: #1a3a1a; border: 1px solid #3a7a3a; color: #6BAF82; }
+    .toast.error   { background: #3a1a1a; border: 1px solid #8B3A3A; color: #FF8080; }
+
+    /* ── HEADER ── */
+    .hdr {
+      padding: 20px 18px 14px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #121e12;
+    }
+    .logo { font-family: 'Instrument Serif', serif; font-size: 20px; color: #5DBE8A; letter-spacing: -0.3px; }
+    .logo-sub { font-size: 10px; color: #2d4a2d; margin-top: 1px; }
+    .snap-badge {
+      background: #1a2a1a; border: 1px solid #2a3a2a; border-radius: 20px;
+      padding: 5px 10px; font-size: 11px; color: #5DBE8A; font-weight: 600;
+      display: flex; align-items: center; gap: 5px;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 16px 18px; display: flex; align-items: center;
+      justify-content: space-between; border-bottom: 1px solid #121e12; gap: 12px;
+    }
+    .hero-left { flex: 1; min-width: 0; }
+    .hero-eyebrow { font-size: 9px; color: #2d4a2d; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
+    .hero-num { font-family: 'Instrument Serif', serif; font-size: 48px; line-height: 1; margin: 4px 0; }
+    .hero-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; margin-top: 8px;
+    }
+    .goal-bar-wrap { margin-top: 10px; }
+    .goal-bar-meta { display: flex; justify-content: space-between; font-size: 10px; color: #3a5a3a; margin-bottom: 4px; }
+
+    /* SVG gauge */
+    #gauge-svg { flex-shrink: 0; }
+
+    /* ── PERIOD ── */
+    .period-row { display: flex; gap: 6px; padding: 10px 18px; border-bottom: 1px solid #121e12; }
+    .p-btn {
+      flex: 1; padding: 7px 0; background: #111811; border: 1px solid #1e2e1e;
+      color: #4a6a4a; font-family: 'Space Grotesk', sans-serif; font-size: 11px;
+      font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.15s;
+    }
+    .p-btn.on { background: #1a3a1a; border-color: #5DBE8A; color: #5DBE8A; }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex; border-bottom: 1px solid #121e12;
+      position: sticky; top: 0; background: #080f08; z-index: 30;
+    }
+    .tab-btn {
+      flex: 1; padding: 11px 2px; background: none; border: none;
+      color: #2d4a2d; font-family: 'Space Grotesk', sans-serif; font-size: 10px;
+      font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .tab-btn .ticon { font-size: 14px; }
+    .tab-btn.on { color: #5DBE8A; border-bottom-color: #5DBE8A; }
+
+    /* ── SECTIONS ── */
+    .sec { padding: 16px 18px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fadeIn 0.3s ease both; }
+
+    /* ── ACCORDION ── */
+    .cat-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0; cursor: pointer; user-select: none;
+    }
+    .cat-hdr-left { display: flex; align-items: center; gap: 8px; }
+    .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .cat-label-text { font-size: 13px; font-weight: 600; color: #c0d4c0; }
+    .cat-co2-val { font-size: 11px; color: #4a6a4a; font-weight: 500; }
+    .cat-chevron { color: #3a5a3a; font-size: 12px; transition: transform 0.2s; }
+    .cat-chevron.open { transform: rotate(90deg); }
+    .cat-divider { border: none; border-top: 1px solid #121e12; margin: 2px 0 8px; }
+    .cat-body { overflow: hidden; max-height: 0; transition: max-height 0.35s ease; }
+    .cat-body.open { max-height: 700px; }
+
+    /* ── FIELDS ── */
+    .field { margin-bottom: 10px; }
+    .field-lbl { display: flex; justify-content: space-between; font-size: 11px; color: #4a7a4a; margin-bottom: 5px; }
+    .field-lbl span { color: #2d4a2d; }
+    .input-row { display: flex; align-items: center; gap: 8px; }
+    .inp {
+      flex: 1; background: #111811; border: 1px solid #1a2a1a; border-radius: 8px;
+      padding: 9px 12px; color: #ddeedd; font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px; font-weight: 600; outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .inp:focus { border-color: #5DBE8A; box-shadow: 0 0 0 2px #5DBE8A18; }
+    .inp::placeholder { color: #1e3a1e; }
+    .inp-unit { font-size: 10px; color: #2d4a2d; width: 28px; text-align: right; flex-shrink: 0; }
+    .inp-co2 { font-size: 10px; width: 56px; text-align: right; flex-shrink: 0; font-weight: 700; color: #2d4a2d; }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      width: 100%; padding: 13px; background: #1a4a1a; border: none; border-radius: 10px;
+      color: #5DBE8A; font-family: 'Space Grotesk', sans-serif; font-size: 13px;
+      font-weight: 700; cursor: pointer; transition: all 0.15s; letter-spacing: 0.02em;
+      margin-top: 4px;
+    }
+    .btn-primary:hover { background: #225022; box-shadow: 0 0 16px #5DBE8A20; }
+    .btn-ai {
+      width: 100%; padding: 13px; border-radius: 10px; cursor: pointer;
+      font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700;
+      background: linear-gradient(135deg, #0d1a2e 0%, #1e0d2e 100%);
+      border: 1px solid #2a2a5a; color: #9090d8; transition: all 0.15s;
+      margin-top: 10px; letter-spacing: 0.02em;
+    }
+    .btn-ai:hover:not(:disabled) { border-color: #4a4a9a; box-shadow: 0 0 20px #6060c020; color: #b0b0f0; }
+    .btn-ai:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── CARDS ── */
+    .card { background: #0e1a0e; border: 1px solid #151f15; border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+    .card-title { font-size: 9px; color: #2d4a2d; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin-bottom: 12px; }
+
+    /* ── PROGRESS BAR ── */
+    .pbar-track { height: 7px; background: #162016; border-radius: 4px; overflow: hidden; }
+    .pbar-fill { height: 100%; border-radius: 4px; transition: width 0.5s cubic-bezier(.4,0,.2,1); }
+
+    /* ── STAT ROW ── */
+    .stat-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .stat-lbl { font-size: 11px; color: #7a9a7a; width: 85px; flex-shrink: 0; }
+    .stat-bar-wrap { flex: 1; }
+    .stat-val { font-size: 11px; color: #9ab49a; font-weight: 600; width: 48px; text-align: right; flex-shrink: 0; }
+
+    /* ── PIE CHART ── */
+    #pie-container { display: flex; justify-content: center; margin: 8px 0 12px; }
+    #pie-svg { overflow: visible; }
+    .pie-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+    .pie-legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #7a9a7a; }
+    .pie-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── AREA CHART ── */
+    #trend-container { margin: 4px 0; }
+    #trend-svg { overflow: visible; }
+
+    /* ── TIP CARD ── */
+    .tip-card {
+      background: #0e1a0e; border: 1px solid #151f15; border-radius: 12px;
+      padding: 12px 14px; margin-bottom: 8px; display: flex; gap: 12px;
+      align-items: flex-start; transition: border-color 0.15s;
+    }
+    .tip-card:hover { border-color: #2a3a2a; }
+    .tip-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+    .tip-title { font-size: 12px; font-weight: 700; color: #c0d4c0; margin-bottom: 3px; }
+    .tip-text { font-size: 11px; color: #5a7a5a; line-height: 1.5; }
+    .tip-co2 { font-size: 10px; color: #FF7B4B; font-weight: 700; margin-top: 4px; }
+
+    /* ── ACHIEVEMENTS ── */
+    .ach-grid { display: flex; justify-content: space-around; padding: 4px 0; }
+    .badge-item { display: flex; flex-direction: column; align-items: center; gap: 4px; transition: opacity 0.3s; }
+    .badge-item.locked { opacity: 0.25; }
+    .badge-circle {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; transition: all 0.3s;
+    }
+    .badge-circle.unlocked { background: #1a3a1a; border: 2px solid #3a7a3a; box-shadow: 0 0 12px #6BAF8240; }
+    .badge-circle.locked-c { background: #131f13; border: 2px solid #1e2e1e; }
+    .badge-label { font-size: 9px; color: #4a6a4a; text-align: center; font-weight: 600; max-width: 50px; }
+    .badge-label.unlocked-l { color: #6BAF82; }
+
+    /* ── AI BOX ── */
+    .ai-box {
+      background: linear-gradient(140deg, #080f1e 0%, #120820 100%);
+      border: 1px solid #20204a; border-radius: 12px; padding: 18px; margin-bottom: 12px;
+    }
+    .ai-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 9px; color: #4040a0; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin-bottom: 12px; }
+    .ai-dot { width: 6px; height: 6px; background: #6060c0; border-radius: 50%; animation: pulse 1.5s infinite; }
+    .ai-text { font-size: 13px; color: #a0a0cc; line-height: 1.75; min-height: 44px; }
+    .ai-text.placeholder { color: #2a2a5a; }
+
+    /* ── GOAL SLIDER ── */
+    .goal-num { font-family: 'Instrument Serif', serif; font-size: 36px; color: #5DBE8A; }
+    .goal-unit { font-size: 12px; color: #4a6a4a; margin-left: 6px; }
+    input[type=range] { width: 100%; accent-color: #5DBE8A; cursor: pointer; margin: 8px 0; }
+    .goal-meta { display: flex; justify-content: space-between; font-size: 10px; color: #4a6a4a; }
+
+    /* ── HISTORY ── */
+    .hist-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #121e12; font-size: 11px; }
+    .hist-row:last-child { border-bottom: none; }
+    .hist-date { color: #4a6a4a; }
+
+    /* ── COMPARE ROW ── */
+    .cmp-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .cmp-lbl { font-size: 10px; color: #5a7a5a; width: 80px; flex-shrink: 0; }
+
+    /* ── EMPTY ── */
+    .empty { text-align: center; padding: 48px 20px; color: #2d4a2d; font-size: 12px; line-height: 1.8; }
+    .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+    /* ── MISC ── */
+    .pulse-dot { display: inline-block; width: 6px; height: 6px; background: #5DBE8A; border-radius: 50%; animation: pulse 1.5s infinite; }
+    .divider { border: none; border-top: 1px solid #121e12; margin: 2px 0 8px; }
+    .ref-row { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: flex-start; }
+    .ref-name { font-size: 12px; color: #c0d4c0; font-weight: 600; }
+    .ref-note { font-size: 10px; color: #4a6a4a; }
+    .ref-val  { font-size: 13px; font-weight: 700; color: #7a9a7a; }
+    .fact-row { font-size: 11px; color: #5a7a5a; margin-bottom: 9px; line-height: 1.55; display: flex; gap: 7px; }
+    .fact-arrow { color: #5DBE8A; flex-shrink: 0; }
+    .snapshot-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .snapshot-lbl { font-size: 12px; color: #7a9a7a; }
+    .offset-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .offset-num { font-family: 'Instrument Serif', serif; font-size: 18px; font-weight: 700; color: #5DBE8A; }
+    .offset-lbl { font-size: 11px; color: #4a6a4a; }
+
+    /* ── ANIMATIONS ── */
+    @keyframes pulse    { 0%,100%{opacity:1;} 50%{opacity:.25;} }
+    @keyframes toastIn  { from{opacity:0;transform:translateY(-8px);} to{opacity:1;transform:translateY(0);} }
+    @keyframes fadeIn   { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:translateY(0);} }
+  </style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div>
+      <div class="logo">🌿 Ecostep</div>
+      <div class="logo-sub">Carbon footprint tracker</div>
+    </div>
+    <div class="snap-badge">
+      <span class="pulse-dot"></span>
+      <span id="snap-count">0 snapshots</span>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-left">
+      <div class="hero-eyebrow">Estimated annual CO₂</div>
+      <div class="hero-num" id="hero-num" style="color:#4a6a4a">–</div>
+      <div id="hero-pill" class="hero-pill" style="background:#4a6a4a18;color:#4a6a4a">⬤ Enter data</div>
+      <div class="goal-bar-wrap" id="goal-bar-wrap" style="display:none">
+        <div class="goal-bar-meta">
+          <span>vs goal (<span id="goal-bar-label">2.5t</span>)</span>
+          <span id="goal-bar-diff" style="color:#5DBE8A"></span>
+        </div>
+        <div class="pbar-track"><div class="pbar-fill" id="goal-pbar" style="width:0%;background:#5DBE8A"></div></div>
+      </div>
+    </div>
+    <svg id="gauge-svg" width="128" height="128">
+      <circle cx="64" cy="64" r="54" fill="none" stroke="#162016" stroke-width="12"/>
+      <circle cx="64" cy="64" r="54" fill="none" stroke="#1e2e1e" stroke-width="12"/>
+      <circle id="gauge-arc" cx="64" cy="64" r="54" fill="none" stroke="#4a6a4a" stroke-width="12"
+        stroke-dasharray="0 339.3" stroke-linecap="round" transform="rotate(-90 64 64)"
+        style="transition:stroke-dasharray 0.7s cubic-bezier(.4,0,.2,1),stroke 0.4s"/>
+      <text id="gauge-label" x="64" y="56" text-anchor="middle" fill="#e8f0e8" font-size="15"
+        font-weight="700" font-family="'Space Grotesk',sans-serif">0kg</text>
+      <text x="64" y="74" text-anchor="middle" fill="#4a6a4a" font-size="9"
+        font-family="'Space Grotesk',sans-serif">CO₂ / year</text>
+      <text id="gauge-pct" x="64" y="88" text-anchor="middle" fill="#4a6a4a" font-size="8"
+        font-weight="600" font-family="'Space Grotesk',sans-serif">0% of max</text>
+    </svg>
+  </div>
+
+  <!-- PERIOD -->
+  <div class="period-row">
+    <button class="p-btn on" data-period="week"  onclick="setPeriod('week')">Per week</button>
+    <button class="p-btn"    data-period="month" onclick="setPeriod('month')">Per month</button>
+    <button class="p-btn"    data-period="year"  onclick="setPeriod('year')">Per year</button>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn on" onclick="setTab(0)"><span class="ticon">📝</span>Log</button>
+    <button class="tab-btn"    onclick="setTab(1)"><span class="ticon">📊</span>Stats</button>
+    <button class="tab-btn"    onclick="setTab(2)"><span class="ticon">🎯</span>Goals</button>
+    <button class="tab-btn"    onclick="setTab(3)"><span class="ticon">💡</span>Reduce</button>
+    <button class="tab-btn"    onclick="setTab(4)"><span class="ticon">✦</span>AI</button>
+  </div>
+
+  <!-- ════ TAB 0: LOG ════ -->
+  <div id="tab-0" class="tab-panel active sec"></div>
+
+  <!-- ════ TAB 1: STATS ════ -->
+  <div id="tab-1" class="tab-panel sec"></div>
+
+  <!-- ════ TAB 2: GOALS ════ -->
+  <div id="tab-2" class="tab-panel sec">
+    <div class="card">
+      <div class="card-title">Set your annual CO₂ goal</div>
+      <div style="text-align:center;margin-bottom:16px">
+        <span class="goal-num" id="goal-display">2.5t</span>
+        <span class="goal-unit">target / year</span>
+      </div>
+      <input type="range" min="500" max="10000" step="100" value="2500" id="goal-slider" oninput="onGoalChange(this.value)"/>
+      <div class="goal-meta"><span>500kg (exceptional)</span><span>10t (high)</span></div>
+    </div>
+    <div class="card" id="goal-progress-card" style="display:none">
+      <div class="card-title">Progress to goal</div>
+      <div class="snapshot-row">
+        <span class="snapshot-lbl">Your footprint</span>
+        <span id="goal-prog-val" style="font-size:13px;font-weight:700"></span>
+      </div>
+      <div class="pbar-track"><div class="pbar-fill" id="goal-prog-bar" style="width:0%"></div></div>
+      <div id="goal-prog-msg" style="margin-top:10px;font-size:12px;color:#5a7a5a;line-height:1.6"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Reference points</div>
+      <div class="ref-row"><div><div class="ref-name">Paris Agreement 2030</div><div class="ref-note">Global per-capita target</div></div><div class="ref-val">2t</div></div>
+      <div class="ref-row"><div><div class="ref-name">Global average</div><div class="ref-note">Current world average</div></div><div class="ref-val">4t</div></div>
+      <div class="ref-row"><div><div class="ref-name">India average</div><div class="ref-note">One of the lowest</div></div><div class="ref-val">1.8t</div></div>
+      <div class="ref-row"><div><div class="ref-name">US average</div><div class="ref-note">One of the highest</div></div><div class="ref-val">14t</div></div>
+    </div>
+  </div>
+
+  <!-- ════ TAB 3: REDUCE ════ -->
+  <div id="tab-3" class="tab-panel sec"></div>
+
+  <!-- ════ TAB 4: AI ════ -->
+  <div id="tab-4" class="tab-panel sec">
+    <div class="ai-box">
+      <div class="ai-badge"><span class="ai-dot"></span> AI Coach · Claude</div>
+      <div class="ai-text placeholder" id="ai-text">Log your activities, then get a personalised insight based on your actual data.</div>
+    </div>
+    <button class="btn-ai" id="ai-btn" onclick="getAI()">✦ Get AI insight</button>
+    <div id="ai-snapshot" style="display:none;margin-top:16px">
+      <div class="card">
+        <div class="card-title">Your current snapshot</div>
+        <div class="snapshot-row"><span class="snapshot-lbl">Annual footprint</span><span id="snap-total" style="font-size:14px;font-weight:700"></span></div>
+        <div class="snapshot-row" id="snap-top-row"><span class="snapshot-lbl">Biggest source</span><span id="snap-top" style="font-size:12px;font-weight:700"></span></div>
+        <div class="snapshot-row"><span class="snapshot-lbl">vs. Paris target</span><span id="snap-paris" style="font-size:12px;font-weight:700"></span></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:10px">
+      <div class="card-title">Emissions facts</div>
+      <div class="fact-row"><span class="fact-arrow">→</span>A transatlantic flight emits ~600kg CO₂ — 3 months of average driving.</div>
+      <div class="fact-row"><span class="fact-arrow">→</span>Beef produces 20× more CO₂ per 100g protein than tofu.</div>
+      <div class="fact-row"><span class="fact-arrow">→</span>Switching to an EV saves ~1.5 tonnes of CO₂ per year vs. a petrol car.</div>
+      <div class="fact-row"><span class="fact-arrow">→</span>The average Indian emits 1.8t/yr — well below the Paris target.</div>
+      <div class="fact-row"><span class="fact-arrow">→</span>Data centres generate ~1% of global electricity demand.</div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════════════════════
+const CATEGORIES = {
+  transport: {
+    label:"Transport", icon:"🚗", color:"#FF7B4B",
+    actions:[
+      {id:"car_km",           label:"Car driven",        unit:"km",    factor:0.21,  tip:"Carpooling halves your per-km emissions instantly."},
+      {id:"flight_hr",        label:"Flight hours",      unit:"hrs",   factor:90,    tip:"One less short-haul flight saves ~200kg CO₂."},
+      {id:"bus_km",           label:"Bus / metro",       unit:"km",    factor:0.089, tip:"Buses emit 4× less than cars — great choice."},
+      {id:"bike_km",          label:"Cycling / walking", unit:"km",    factor:0,     tip:"Zero emissions. The gold standard."},
+    ]
+  },
+  home: {
+    label:"Home", icon:"🏠", color:"#4A9EDB",
+    actions:[
+      {id:"electricity_kwh",  label:"Electricity",       unit:"kWh",   factor:0.82,  tip:"LED bulbs use 75% less energy than incandescent."},
+      {id:"gas_m3",           label:"Natural gas",       unit:"m³",    factor:2.0,   tip:"Drop thermostat 1°C → save ~10% on heating bills."},
+      {id:"heat_pump",        label:"Heat pump",         unit:"hrs",   factor:0.15,  tip:"Heat pumps are 3–4× more efficient than gas boilers."},
+    ]
+  },
+  food: {
+    label:"Food", icon:"🥗", color:"#5DBE8A",
+    actions:[
+      {id:"beef_meals",       label:"Beef meals",        unit:"meals", factor:6.0,   tip:"One veggie swap/week saves ~250kg CO₂ per year."},
+      {id:"chicken_meals",    label:"Poultry meals",     unit:"meals", factor:1.5,   tip:"10× lower emissions than beef per kg."},
+      {id:"veg_meals",        label:"Plant-based meals", unit:"meals", factor:0.5,   tip:"Plant diets cut food-related emissions by up to 50%."},
+      {id:"dairy_l",          label:"Dairy",             unit:"litres",factor:1.3,   tip:"Oat milk uses 80% less land than cow milk."},
+    ]
+  },
+  shopping: {
+    label:"Shopping", icon:"🛍️", color:"#A67DC8",
+    actions:[
+      {id:"clothes_items",    label:"New clothes",       unit:"items", factor:10,    tip:"Buying second-hand cuts clothing emissions by ~80%."},
+      {id:"electronics_items",label:"Electronics",       unit:"items", factor:80,    tip:"Extending device life by 1 year saves ~150kg CO₂."},
+      {id:"streaming_hr",     label:"Video streaming",   unit:"hrs",   factor:0.036, tip:"Standard definition uses 4× less data than 4K."},
+    ]
+  }
+};
+
+const PARIS_TARGET = 2000, GLOBAL_AVG = 4000, US_AVG = 14000;
+const allActions = Object.entries(CATEGORIES).flatMap(([cat,c]) => c.actions.map(a=>({...a,category:cat})));
+
+const ACHIEVEMENTS = [
+  {id:"first_log", icon:"🌱", label:"First Step",    check:(logs)=>logs.length>=1},
+  {id:"below_avg", icon:"⭐", label:"Below Average", check:(_,t)=>t>0&&t<GLOBAL_AVG},
+  {id:"paris_hero",icon:"🏆", label:"Paris Hero",    check:(_,t)=>t>0&&t<PARIS_TARGET},
+  {id:"five_logs", icon:"🔥", label:"Consistent",    check:(logs)=>logs.length>=5},
+  {id:"zero_beef", icon:"🥦", label:"Green Plate",   check:(_,__,inp)=>parseFloat(inp.beef_meals||0)===0},
+];
+
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
+let state = {
+  tab: 0,
+  period: "week",
+  inputs: {},
+  logs: [],
+  goal: 2500,
+  expanded: {},   // catKey -> bool (default true)
+  aiText: "",
+  aiLoading: false,
+};
+
+function multiplier(){ return state.period==="week"?52:state.period==="month"?12:1; }
+
+function annualTotal(){
+  return allActions.reduce((s,a)=>s+parseFloat(state.inputs[a.id]||0)*a.factor*multiplier(),0);
+}
+
+function byCategory(){
+  return Object.entries(CATEGORIES).map(([key,cat])=>({
+    key, ...cat,
+    total: cat.actions.reduce((s,a)=>s+parseFloat(state.inputs[a.id]||0)*a.factor*multiplier(),0)
+  }));
+}
+
+function statusColor(total){
+  if(total===0) return "#4a6a4a";
+  if(total<PARIS_TARGET) return "#5DBE8A";
+  if(total<GLOBAL_AVG)   return "#E8C45A";
+  return "#FF7B4B";
+}
+
+// ══════════════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════════════
+function fmt(val){ return val>=1000?`${(val/1000).toFixed(1)}t`:`${Math.round(val)}kg`; }
+function clamp(v,mn,mx){ return Math.min(Math.max(v,mn),mx); }
+
+// Animated number counter
+function animateTo(el, target, duration=600, isKg=true){
+  const start = parseFloat(el.dataset.current||0);
+  el.dataset.current = target;
+  const t0 = performance.now();
+  const tick = (now) => {
+    const p = clamp((now-t0)/duration,0,1);
+    const ease = 1-Math.pow(1-p,3);
+    const val = start+(target-start)*ease;
+    if(isKg) el.textContent = fmt(val);
+    else el.textContent = val.toFixed(1);
+    if(p<1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+// Typewriter
+let twInterval = null;
+function typewrite(text, el){
+  clearInterval(twInterval);
+  el.textContent = "";
+  let i=0;
+  twInterval = setInterval(()=>{
+    i++;
+    el.textContent = text.slice(0,i);
+    if(i>=text.length) clearInterval(twInterval);
+  },18);
+}
+
+// Toast
+function toast(msg, type="success"){
+  const c = document.getElementById("toast-container");
+  const d = document.createElement("div");
+  d.className = `toast ${type}`;
+  d.textContent = msg;
+  c.appendChild(d);
+  setTimeout(()=>d.remove(), 3000);
+}
+
+// ══════════════════════════════════════════════════════════
+//  GAUGE UPDATE
+// ══════════════════════════════════════════════════════════
+let gaugeAnimFrame;
+function updateGauge(target){
+  const arc    = document.getElementById("gauge-arc");
+  const lbl    = document.getElementById("gauge-label");
+  const pctEl  = document.getElementById("gauge-pct");
+  const MAX    = 8000;
+  const circ   = 2*Math.PI*54;
+  const pct    = clamp(target/MAX,0,1);
+  const col    = statusColor(target);
+  arc.setAttribute("stroke-dasharray", `${pct*circ} ${circ}`);
+  arc.setAttribute("stroke", col);
+  lbl.setAttribute("fill", "#e8f0e8");
+  lbl.textContent = fmt(target);
+  pctEl.setAttribute("fill", col);
+  pctEl.textContent = pct>=1?"⚠ Max":`${Math.round(pct*100)}% of max`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  HERO UPDATE
+// ══════════════════════════════════════════════════════════
+function updateHero(){
+  const total = annualTotal();
+  const col   = statusColor(total);
+  const numEl = document.getElementById("hero-num");
+  numEl.style.color = col;
+  if(total===0){ numEl.textContent="–"; }
+  else { numEl.textContent = fmt(total); }
+
+  const pill = document.getElementById("hero-pill");
+  pill.style.background = col+"18";
+  pill.style.color = col;
+  if(total===0)                    pill.textContent="⬤ Enter data";
+  else if(total<PARIS_TARGET)      pill.textContent="🌱 Below Paris target";
+  else if(total<GLOBAL_AVG)        pill.textContent="⚠ Above Paris target";
+  else                             pill.textContent="🔴 High impact";
+
+  updateGauge(total);
+
+  // Goal bar
+  const wrap = document.getElementById("goal-bar-wrap");
+  if(total>0){
+    wrap.style.display="block";
+    document.getElementById("goal-bar-label").textContent = fmt(state.goal);
+    const over = total>state.goal;
+    const diff = Math.abs(total-state.goal);
+    const diffEl = document.getElementById("goal-bar-diff");
+    diffEl.textContent = over?`${fmt(diff)} over`:`✓ ${fmt(diff)} under`;
+    diffEl.style.color = over?"#FF7B4B":"#5DBE8A";
+    const pbar = document.getElementById("goal-pbar");
+    const w = clamp(total/(state.goal*1.5)*100,0,100);
+    pbar.style.width = w+"%";
+    pbar.style.background = over?"#FF7B4B":"#5DBE8A";
+    pbar.style.boxShadow = `0 0 8px ${over?"#FF7B4B":"#5DBE8A"}60`;
+  } else { wrap.style.display="none"; }
+
+  // Snap count
+  document.getElementById("snap-count").textContent =
+    `${state.logs.length} snapshot${state.logs.length!==1?"s":""}`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  PERIOD
+// ══════════════════════════════════════════════════════════
+function setPeriod(p){
+  state.period = p;
+  document.querySelectorAll(".p-btn").forEach(b=>{
+    b.classList.toggle("on", b.dataset.period===p);
+  });
+  render();
+}
+
+// ══════════════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════════════
+function setTab(i){
+  state.tab = i;
+  document.querySelectorAll(".tab-btn").forEach((b,idx)=>b.classList.toggle("on",idx===i));
+  document.querySelectorAll(".tab-panel").forEach((p,idx)=>{
+    p.classList.toggle("active", idx===i);
+  });
+  render();
+}
+
+// ══════════════════════════════════════════════════════════
+//  GOAL
+// ══════════════════════════════════════════════════════════
+function onGoalChange(v){
+  state.goal = parseInt(v);
+  document.getElementById("goal-display").textContent = fmt(state.goal);
+  updateHero();
+  renderGoalProgress();
+}
+
+function renderGoalProgress(){
+  const total = annualTotal();
+  const card  = document.getElementById("goal-progress-card");
+  if(total===0){ card.style.display="none"; return; }
+  card.style.display="block";
+  const col   = total<=state.goal?"#5DBE8A":"#FF7B4B";
+  document.getElementById("goal-prog-val").textContent = fmt(total);
+  document.getElementById("goal-prog-val").style.color = col;
+  const bar = document.getElementById("goal-prog-bar");
+  bar.style.width = clamp(total/(state.goal*1.5)*100,0,100)+"%";
+  bar.style.background = col;
+  bar.style.boxShadow = `0 0 8px ${col}60`;
+  const msg = document.getElementById("goal-prog-msg");
+  msg.textContent = total<=state.goal
+    ?`✓ You are ${fmt(state.goal-total)} under your goal. Keep it up!`
+    :`You need to cut ${fmt(total-state.goal)} to hit your goal. Check the Reduce tab for ideas.`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER TAB 0 — LOG
+// ══════════════════════════════════════════════════════════
+function renderLog(){
+  const el = document.getElementById("tab-0");
+  let html = "";
+  Object.entries(CATEGORIES).forEach(([catKey,cat])=>{
+    const open = state.expanded[catKey]!==false;
+    const catTotal = cat.actions.reduce((s,a)=>s+parseFloat(state.inputs[a.id]||0)*a.factor*multiplier(),0);
+    html += `
+      <div>
+        <div class="cat-hdr" onclick="toggleCat('${catKey}')">
+          <div class="cat-hdr-left">
+            <div class="cat-dot" style="background:${cat.color}"></div>
+            <span style="font-size:16px">${cat.icon}</span>
+            <span class="cat-label-text">${cat.label}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${catTotal>0?`<span class="cat-co2-val">${fmt(catTotal)}/yr</span>`:""}
+            <span class="cat-chevron ${open?"open":""}" id="chevron-${catKey}">▶</span>
+          </div>
+        </div>
+        <hr class="divider"/>
+        <div class="cat-body ${open?"open":""}" id="catbody-${catKey}">`;
+    cat.actions.forEach(action=>{
+      const val = parseFloat(state.inputs[action.id]||0);
+      const co2 = val*action.factor*multiplier();
+      html += `
+          <div class="field">
+            <div class="field-lbl"><span style="color:#7a9a7a">${action.label}</span><span>${action.unit} / ${state.period}</span></div>
+            <div class="input-row">
+              <input class="inp" type="number" min="0" placeholder="0"
+                value="${state.inputs[action.id]||""}"
+                data-id="${action.id}"
+                oninput="onInput('${action.id}',this.value)"
+              />
+              <div class="inp-unit">${action.unit}</div>
+              <div class="inp-co2" id="co2-${action.id}" style="color:${co2>0?cat.color:"#2d4a2d"}">${co2>0?"+"+fmt(co2):"—"}</div>
+            </div>
+          </div>`;
+    });
+    html += `      </div></div>`;
+  });
+  html += `<button class="btn-primary" onclick="logActivity()">Save snapshot →</button>`;
+  el.innerHTML = html;
+}
+
+function toggleCat(key){
+  state.expanded[key] = state.expanded[key]===false ? true : false;
+  const body    = document.getElementById("catbody-"+key);
+  const chevron = document.getElementById("chevron-"+key);
+  const open    = state.expanded[key]!==false;
+  body.classList.toggle("open", open);
+  chevron.classList.toggle("open", open);
+}
+
+function onInput(id, val){
+  state.inputs[id] = val;
+  // Update inline CO₂ label without full re-render
+  const action = allActions.find(a=>a.id===id);
+  if(!action) return;
+  const cat = CATEGORIES[action.category];
+  const v   = parseFloat(val||0);
+  const co2 = v*action.factor*multiplier();
+  const el  = document.getElementById("co2-"+id);
+  if(el){
+    el.style.color = co2>0?cat.color:"#2d4a2d";
+    el.textContent = co2>0?"+"+fmt(co2):"—";
+  }
+  // Update category total label
+  renderLog(); // light re-render for category totals
+  updateHero();
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER TAB 1 — STATS
+// ══════════════════════════════════════════════════════════
+function renderStats(){
+  const el    = document.getElementById("tab-1");
+  const total = annualTotal();
+  const cats  = byCategory();
+
+  if(total===0){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📊</div>Log activities to see your stats</div>`;
+    return;
+  }
+
+  const maxCat = Math.max(...cats.map(c=>c.total),1);
+  let html = "";
+
+  // Category breakdown
+  html += `<div class="card"><div class="card-title">Breakdown by category</div>`;
+  cats.forEach(cat=>{
+    const w = clamp(cat.total/maxCat*100,0,100);
+    html += `
+      <div class="stat-row">
+        <div class="stat-lbl">${cat.icon} ${cat.label}</div>
+        <div class="stat-bar-wrap">
+          <div class="pbar-track"><div class="pbar-fill" style="width:${w}%;background:${cat.color};box-shadow:0 0 8px ${cat.color}60"></div></div>
+        </div>
+        <div class="stat-val" style="color:${cat.color}">${fmt(cat.total)}</div>
+      </div>`;
+  });
+  html += `</div>`;
+
+  // Pie chart (vanilla SVG)
+  const pieData = cats.filter(c=>c.total>0);
+  if(pieData.length>0){
+    html += `<div class="card"><div class="card-title">Share of emissions</div>`;
+    html += `<div id="pie-container"></div>`;
+    html += `<div class="pie-legend" id="pie-legend"></div></div>`;
+  }
+
+  // Comparison
+  html += `<div class="card"><div class="card-title">Global comparison</div>`;
+  const cmpItems = [
+    {label:"You",          value:total,        color:statusColor(total)},
+    {label:"Paris target", value:PARIS_TARGET,  color:"#5DBE8A"},
+    {label:"World avg",    value:GLOBAL_AVG,    color:"#E8C45A"},
+    {label:"US avg",       value:US_AVG,        color:"#FF7B4B"},
+  ];
+  cmpItems.forEach(row=>{
+    const w = clamp(row.value/US_AVG*100,0,100);
+    html += `
+      <div class="cmp-bar">
+        <div class="cmp-lbl">${row.label}</div>
+        <div style="flex:1"><div class="pbar-track"><div class="pbar-fill" style="width:${w}%;background:${row.color};box-shadow:0 0 8px ${row.color}60"></div></div></div>
+        <div class="stat-val" style="color:${row.color}">${fmt(row.value)}</div>
+      </div>`;
+  });
+  html += `</div>`;
+
+  // Trend
+  if(state.logs.length>1){
+    html += `<div class="card"><div class="card-title">Trend (tonnes / year)</div><div id="trend-container"></div></div>`;
+  }
+
+  // History
+  if(state.logs.length>0){
+    html += `<div class="card"><div class="card-title">Snapshot history</div>`;
+    state.logs.slice(0,5).forEach(l=>{
+      html += `<div class="hist-row"><span class="hist-date">${l.date} · per ${l.period}</span><span class="hist-val" style="color:${statusColor(l.total)}">${fmt(l.total)}/yr</span></div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Achievements
+  html += `<div class="card"><div class="card-title">Achievements</div><div class="ach-grid">`;
+  ACHIEVEMENTS.forEach(a=>{
+    const unlocked = a.check(state.logs, total, state.inputs);
+    html += `
+      <div class="badge-item ${unlocked?"":"locked"}">
+        <div class="badge-circle ${unlocked?"unlocked":"locked-c"}">${a.icon}</div>
+        <span class="badge-label ${unlocked?"unlocked-l":""}">${a.label}</span>
+      </div>`;
+  });
+  html += `</div></div>`;
+
+  el.innerHTML = html;
+
+  // Draw pie chart
+  if(pieData.length>0) drawPie(pieData, total);
+
+  // Draw trend
+  if(state.logs.length>1) drawTrend();
+}
+
+function drawPie(data, total){
+  const W=160, H=160, cx=80, cy=80, R=60, ri=38;
+  let startAngle = -Math.PI/2;
+  let paths="", legend="";
+
+  data.forEach(cat=>{
+    const slice = (cat.total/total)*2*Math.PI;
+    const endAngle = startAngle+slice;
+    const x1=cx+R*Math.cos(startAngle), y1=cy+R*Math.sin(startAngle);
+    const x2=cx+R*Math.cos(endAngle),   y2=cy+R*Math.sin(endAngle);
+    const ix1=cx+ri*Math.cos(startAngle),iy1=cy+ri*Math.sin(startAngle);
+    const ix2=cx+ri*Math.cos(endAngle),  iy2=cy+ri*Math.sin(endAngle);
+    const large=slice>Math.PI?1:0;
+    paths += `<path d="M${ix1},${iy1} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} L${ix2},${iy2} A${ri},${ri} 0 ${large},0 ${ix1},${iy1}Z"
+      fill="${cat.color}" opacity="0.9"/>`;
+    legend += `<div class="pie-legend-item"><div class="pie-dot" style="background:${cat.color}"></div>${cat.icon} ${cat.label}</div>`;
+    startAngle = endAngle;
+  });
+
+  const container = document.getElementById("pie-container");
+  if(container) container.innerHTML = `<svg width="${W}" height="${H}" style="overflow:visible">${paths}</svg>`;
+  const lgEl = document.getElementById("pie-legend");
+  if(lgEl) lgEl.innerHTML = legend;
+}
+
+function drawTrend(){
+  const recent = [...state.logs].reverse().slice(-7);
+  if(recent.length<2) return;
+  const vals = recent.map(l=>l.total/1000);
+  const W=362, H=80, pad={l:28,r:8,t:8,b:20};
+  const minV=Math.min(...vals)*0.9, maxV=Math.max(...vals)*1.1;
+  const xs=i=>(i/(vals.length-1))*(W-pad.l-pad.r)+pad.l;
+  const ys=v=>(1-(v-minV)/(maxV-minV))*(H-pad.t-pad.b)+pad.t;
+
+  let points=vals.map((v,i)=>`${xs(i)},${ys(v)}`).join(" ");
+  let area=`M${xs(0)},${H-pad.b} `+vals.map((v,i)=>`L${xs(i)},${ys(v)}`).join(" ")+` L${xs(vals.length-1)},${H-pad.b}Z`;
+  let line=`M`+vals.map((v,i)=>`${xs(i)},${ys(v)}`).join(" L");
+
+  let labels = recent.map((l,i)=>`<text x="${xs(i)}" y="${H-4}" text-anchor="middle" fill="#4a6a4a" font-size="8" font-family="'Space Grotesk',sans-serif">${l.date.slice(0,5)}</text>`).join("");
+  let dots   = vals.map((v,i)=>`<circle cx="${xs(i)}" cy="${ys(v)}" r="3" fill="#5DBE8A"/>`).join("");
+
+  const svg = `<svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible">
+    <defs>
+      <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="5%"  stop-color="#5DBE8A" stop-opacity="0.3"/>
+        <stop offset="95%" stop-color="#5DBE8A" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="${area}" fill="url(#tg)"/>
+    <path d="${line}" fill="none" stroke="#5DBE8A" stroke-width="2"/>
+    ${dots}${labels}
+  </svg>`;
+  const c = document.getElementById("trend-container");
+  if(c) c.innerHTML = svg;
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER TAB 3 — REDUCE
+// ══════════════════════════════════════════════════════════
+function renderReduce(){
+  const el      = document.getElementById("tab-3");
+  const total   = annualTotal();
+  const active  = allActions.filter(a=>parseFloat(state.inputs[a.id]||0)>0);
+
+  if(active.length===0){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">💡</div>Log your activities first —<br>we'll show exactly where<br>to cut emissions.</div>`;
+    return;
+  }
+
+  const sorted = [...active].sort((a,b)=>
+    parseFloat(state.inputs[b.id]||0)*b.factor - parseFloat(state.inputs[a.id]||0)*a.factor
+  ).slice(0,8);
+
+  let html = `<div style="font-size:11px;color:#3a5a3a;margin-bottom:14px">Sorted by your highest-impact sources</div>`;
+
+  sorted.forEach(action=>{
+    const cat  = CATEGORIES[action.category];
+    const val  = parseFloat(state.inputs[action.id]||0);
+    const co2  = val*action.factor*multiplier();
+    html += `
+      <div class="tip-card">
+        <div class="tip-icon">${cat.icon}</div>
+        <div>
+          <div class="tip-title">${action.label}</div>
+          <div class="tip-text">${action.tip}</div>
+          ${co2>0?`<div class="tip-co2">${fmt(co2)} CO₂/yr from this source</div>`:""}
+        </div>
+      </div>`;
+  });
+
+  // Offset calculator
+  const trees  = Math.ceil(total/21);
+  const panels = Math.ceil(total/900);
+  html += `
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Carbon offset equivalent</div>
+      <div class="offset-row">
+        <span style="font-size:22px">🌳</span>
+        <div><div class="offset-num">${trees.toLocaleString()}</div><div class="offset-lbl">trees to plant to absorb your annual CO₂</div></div>
+      </div>
+      <div class="offset-row">
+        <span style="font-size:22px">☀️</span>
+        <div><div class="offset-num">${panels.toLocaleString()}</div><div class="offset-lbl">solar panels to offset with clean energy</div></div>
+      </div>
+    </div>`;
+
+  el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════
+//  AI INSIGHT
+// ══════════════════════════════════════════════════════════
+async function getAI(){
+  const total = annualTotal();
+  if(total===0){ toast("Log some activities first.","error"); return; }
+  const btn   = document.getElementById("ai-btn");
+  const textEl= document.getElementById("ai-text");
+
+  state.aiLoading = true;
+  btn.disabled = true;
+  btn.textContent = "Thinking…";
+  textEl.className = "ai-text";
+  textEl.textContent = "Analysing your footprint…";
+
+  const cats    = byCategory();
+  const summary = cats.map(c=>`${c.label}: ${Math.round(c.total)}kg`).join(", ");
+  const prompt  = `You are a warm, data-driven sustainability coach. The user's annual carbon footprint is ${Math.round(total)}kg CO₂, split as: ${summary}. Paris target is 2,000kg; global avg 4,000kg; their personal goal is ${state.goal}kg.
+
+Write exactly 3 sentences: (1) Name their single biggest source and its share of total. (2) Give ONE specific action with exact kg saved. (3) A brief, energising close. No bullet points. No preamble.`;
+
+  try {
+    const res  = await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:prompt}]})
+    });
+    const data = await res.json();
+    const text = data.content?.map(b=>b.text||"").join("") || "No response.";
+    state.aiText = text;
+    typewrite(text, textEl);
+  } catch(e){
+    textEl.textContent = "Could not reach AI. Check your connection.";
+  }
+
+  state.aiLoading = false;
+  btn.disabled = false;
+  btn.textContent = "↺ New insight";
+
+  // Update snapshot panel
+  updateAISnapshot();
+}
+
+function updateAISnapshot(){
+  const total = annualTotal();
+  if(total===0){ document.getElementById("ai-snapshot").style.display="none"; return; }
+  document.getElementById("ai-snapshot").style.display="block";
+  const col = statusColor(total);
+  document.getElementById("snap-total").textContent = fmt(total);
+  document.getElementById("snap-total").style.color = col;
+
+  const cats   = byCategory().filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+  const top    = cats[0];
+  if(top){
+    document.getElementById("snap-top").textContent = `${top.icon} ${top.label} (${fmt(top.total)})`;
+    document.getElementById("snap-top").style.color = top.color;
+  }
+
+  const under   = total<=PARIS_TARGET;
+  const parisEl = document.getElementById("snap-paris");
+  parisEl.textContent = under?`✓ ${fmt(PARIS_TARGET-total)} under`:`${fmt(total-PARIS_TARGET)} over`;
+  parisEl.style.color = under?"#5DBE8A":"#FF7B4B";
+}
+
+// ══════════════════════════════════════════════════════════
+//  LOG ACTIVITY
+// ══════════════════════════════════════════════════════════
+function logActivity(){
+  const entries = allActions
+    .filter(a=>parseFloat(state.inputs[a.id]||0)>0)
+    .map(a=>({...a, value:parseFloat(state.inputs[a.id]), co2:parseFloat(state.inputs[a.id])*a.factor}));
+  if(!entries.length){ toast("Enter at least one activity first.","error"); return; }
+  const total = annualTotal();
+  const snap  = {id:Date.now(), date:new Date().toLocaleDateString("en-IN"), period:state.period, entries, total};
+  state.logs  = [snap, ...state.logs.slice(0,9)];
+  toast(`Snapshot saved — ${fmt(total)} / year`);
+  updateHero();
+  if(state.tab===1) renderStats();
+}
+
+// ══════════════════════════════════════════════════════════
+//  MAIN RENDER
+// ══════════════════════════════════════════════════════════
+function render(){
+  updateHero();
+  if(state.tab===0) renderLog();
+  if(state.tab===1) renderStats();
+  if(state.tab===2) { renderGoalProgress(); document.getElementById("goal-display").textContent=fmt(state.goal); document.getElementById("goal-slider").value=state.goal; }
+  if(state.tab===3) renderReduce();
+  if(state.tab===4) updateAISnapshot();
+}
+
+// ══════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════
+render();
+</script>
+</body>
+</html>
