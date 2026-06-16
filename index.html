@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EcoStep - Carbon Footprint Tracker</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial,sans-serif;
+    background:#0f1710;
+    color:#e8f0e8;
+}
+header{
+    padding:20px;
+    text-align:center;
+    background:#162016;
+}
+.container{
+    max-width:1000px;
+    margin:auto;
+    padding:20px;
+}
+.card{
+    background:#162016;
+    padding:15px;
+    margin-bottom:15px;
+    border-radius:10px;
+}
+input{
+    width:100%;
+    padding:10px;
+    margin-top:5px;
+    background:#0f1710;
+    color:white;
+    border:1px solid #2d4a2d;
+    border-radius:6px;
+}
+button{
+    background:#5DBE8A;
+    border:none;
+    padding:10px 15px;
+    border-radius:6px;
+    cursor:pointer;
+}
+.result{
+    margin-top:20px;
+    font-size:20px;
+    font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>🌱 EcoStep</h1>
+    <p>Carbon Footprint Tracker</p>
+</header>
+
+<div class="container">
+
+    <div class="card">
+        <h2>🚗 Transport</h2>
+
+        <label>Car Driven (km/week)</label>
+        <input type="number" id="carKm" value="0">
+
+        <label>Flight Hours</label>
+        <input type="number" id="flightHr" value="0">
+    </div>
+
+    <div class="card">
+        <h2>🏠 Home</h2>
+
+        <label>Electricity (kWh)</label>
+        <input type="number" id="electricity" value="0">
+    </div>
+
+    <button onclick="calculate()">Calculate Footprint</button>
+
+    <div class="result" id="result">
+        Annual CO₂: 0 kg
+    </div>
+
+</div>
+
+<script>
+function calculate() {
+    const carKm = parseFloat(document.getElementById("carKm").value) || 0;
+    const flightHr = parseFloat(document.getElementById("flightHr").value) || 0;
+    const electricity = parseFloat(document.getElementById("electricity").value) || 0;
+
+    const total =
+        (carKm * 0.21 * 52) +
+        (flightHr * 90 * 52) +
+        (electricity * 0.82 * 52);
+
+    document.getElementById("result").innerText =
+        "Annual CO₂: " + Math.round(total) + " kg";
+}
+</script>
+
+</body>
+</html>
