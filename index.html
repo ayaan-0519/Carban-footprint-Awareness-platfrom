@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ecostep – Carbon Footprint Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    /* ── RESET & BASE ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: #080f08; height: 100%; font-family: 'Space Grotesk', sans-serif; color: #ddeedd; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+    /* ── ROOT ── */
+    #app {
+      min-height: 100vh; background: #080f08;
+      max-width: 430px; margin: 0 auto;
+      position: relative; padding-bottom: 90px;
+    }
+
+    /* ── TOAST ── */
+    #toast-container {
+      position: fixed; top: 16px; right: 16px; z-index: 999;
+      display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+    }
+    .toast {
+      padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+      animation: toastIn 0.25s ease; box-shadow: 0 4px 20px #00000060;
+    }
+    .toast.success { background: #1a3a1a; border: 1px solid #3a7a3a; color: #6BAF82; }
+    .toast.error   { background: #3a1a1a; border: 1px solid #8B3A3A; color: #FF8080; }
+
+    /* ── HEADER ── */
+    .hdr {
+      padding: 20px 18px 14px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #121e12;
+    }
+    .logo { font-family: 'Instrument Serif', serif; font-size: 20px; color: #5DBE8A; letter-spacing: -0.3px; }
+    .logo-sub { font-size: 10px; color: #2d4a2d; margin-top: 1px; }
+    .snap-badge {
+      background: #1a2a1a; border: 1px solid #2a3a2a; border-radius: 20px;
+      padding: 5px 10px; font-size: 11px; color: #5DBE8A; font-weight: 600;
+      display: flex; align-items: center; gap: 5px;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 16px 18px; display: flex; align-items: center;
+      justify-content: space-between; border-bottom: 1px solid #121e12; gap: 12px;
+    }
+    .hero-left { flex: 1; min-width: 0; }
+    .hero-eyebrow { font-size: 9px; color: #2d4a2d; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
+    .hero-num { font-family: 'Instrument Serif', serif; font-size: 48px; line-height: 1; margin: 4px 0; }
+    .hero-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; margin-top: 8px;
+    }
+    .goal-bar-wrap { margin-top: 10px; }
+    .goal-bar-meta { display: flex; justify-content: space-between; font-size: 10px; color: #3a5a3a; margin-bottom: 4px; }
+
+    /* SVG gauge */
+    #gauge-svg { flex-shrink: 0; }
+
+    /* ── PERIOD ── */
+    .period-row { display: flex; gap: 6px; padding: 10px 18px; border-bottom: 1px solid #121e12; }
+    .p-btn {
+      flex: 1; padding: 7px 0; background: #111811; border: 1px solid #1e2e1e;
+      color: #4a6a4a; font-family: 'Space Grotesk', sans-serif; font-size: 11px;
+      font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.15s;
+    }
+    .p-btn.on { background: #1a3a1a; border-color: #5DBE8A; color: #5DBE8A; }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex; border-bottom: 1px solid #121e12;
+      position: sticky; top: 0; background: #080f08; z-index: 30;
+    }
+    .tab-btn {
+      flex: 1; padding: 11px 2px; background: none; border: none;
+      color: #2d4a2d; font-family: 'Space Grotesk', sans-serif; font-size: 10px;
+      font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .tab-btn .ticon { font-size: 14px; }
+    .tab-btn.on { color: #5DBE8A; border-bottom-color: #5DBE8A; }
+
+    /* ── SECTIONS ── */
+    .sec { padding: 16px 18px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fadeIn 0.3s ease both; }
+
+    /* ── ACCORDION ── */
+    .cat-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0; cursor: pointer; user-select: none;
+    }
+    .cat-hdr-left { display: flex; align-items: center; gap: 8px; }
+    .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .cat-label-text { font-size: 13px; font-weight: 600; color: #c0d4c0; }
+    .cat-co2-val { font-size: 11px; color: #4a6a4a; font-weight: 500; }
+    .cat-chevron { color: #3a5a3a; font-size: 12px; transition: transform 0.2s; }
+    .cat-chevron.open { transform: rotate(90deg); }
+    .cat-divider { border: none; border-top: 1px solid #121e12; margin: 2px 0 8px; }
+    .cat-body { overflow: hidden; max-height: 0; transition: max-height 0.35s ease; }
+    .cat-body.open { max-height: 700px; }
+
+    /* ── FIELDS ── */
+    .field { margin-bottom: 10px; }
+    .field-lbl { display: flex; justify-content: space-between; font-size: 11px; color: #4a7a4a; margin-bottom: 5px; }
+    .field-lbl span { color: #2d4a2d; }
+    .input-row { display: flex; align-items: center; gap: 8px; }
+    .inp {
+      flex: 1; background: #111811; border: 1px solid #1a2a1a; border-radius: 8px;
+      padding: 9px 12px; color: #ddeedd; font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px; font-weight: 600; outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .inp:focus { border-color: #5DBE8A; box-shadow: 0 0 0 2px #5DBE8A18; }
+    .inp::placeholder { color: #1e3a1e; }
+    .inp-unit { font-size: 10px; color: #2d4a2d; width: 28px; text-align: right; flex-shrink: 0; }
+    .inp-co2 { font-size: 10px; width: 56px; text-align: right; flex-shrink: 0; font-weight: 700; color: #2d4a2d; }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      width: 100%; padding: 13px; background: #1a4a1a; border: none; border-radius: 10px;
+      color: #5DBE8A; font-family: 'Space Grotesk', sans-serif; font-size: 13px;
+      font-weight: 700; cursor: pointer; transition: all 0.15s; letter-spacing: 0.02em;
+      margin-top: 4px;
+    }
+    .btn-primary:hover { background: #225022; box-shadow: 0 0 16px #5DBE8A20; }
+    .btn-ai {
+      width: 100%; padding: 13px; border-radius: 10px; cursor: pointer;
+      font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700;
+      background: linear-gradient(135deg, #0d1a2e 0%, #1e0d2e 100%);
+      border: 1px solid #2a2a5a; color: #9090d8; transition: all 0.15s;
+      margin-top: 10px; letter-spacing: 0.02em;
+    }
+    .btn-ai:hover:not(:disabled) { border-color: #4a4a9a; box-shadow: 0 0 20px #6060c020; color: #b0b0f0; }
+    .btn-ai:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── CARDS ── */
+    .card { background: #0e1a0e; border: 1px solid #151f15; border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+    .card-title { font-size: 9px; color: #2d4a2d; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin-bottom: 12px; }
+
+    /* ── PROGRESS BAR ── */
+    .pbar-track { height: 7px; background: #162016; border-radius: 4px; overflow: hidden; }
+    .pbar-fill { height: 100%; border-radius: 4px; transition: width 0.5s cubic-bezier(.4,0,.2,1); }
+
+    /* ── STAT ROW ── */
+    .stat-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .stat-lbl { font-size: 11px; color: #7a9a7a; width: 85px; flex-shrink: 0; }
+    .stat-bar-wrap { flex: 1; }
+    .stat-val { font-size: 11px; color: #9ab49a; font-weight: 600; width: 48px; text-align: right; flex-shrink: 0; }
+
+    /* ── PIE CHART ── */
+    #pie-container { display: flex; justify-content: center; margin: 8px 0 12px; }
+    #pie-svg { overflow: visible; }
+    .pie-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+    .pie-legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #7a9a7a; }
+    .pie-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── AREA CHART ── */
+    #trend-container { margin: 4px 0; }
+    #trend-svg { overflow: visible; }
+
+    /* ── TIP CARD ── */
+    .tip-card {
+      background: #0e1a0e; border: 1px solid #151f15; border-radius: 12px;
+      padding: 12px 14px; margin-bottom: 8px; display: flex; gap: 12px;
+      align-items: flex-start; transition: border-color 0.15s;
+    }
+    .tip-card:hover { border-color: #2a3a2a; }
+    .tip-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+    .tip-title { font-size: 12px; font-weight: 700; color: #c0d4c0; margin-bottom: 3px; }
+    .tip-text { font-size: 11px; color: #5a7a5a; line-height: 1.5; }
+    .tip-co2 { font-size: 10px; color: #FF7B4B; font-weight: 700; margin-top: 4px; }
+
+    /* ── ACHIEVEMENTS ── */
+    .ach-grid { display: flex; justify-content: space-around; padding: 4px 0; }
+    .badge-item { display: flex; flex-direction: column; align-items: center; gap: 4px; transition: opacity 0.3s; }
+    .badge-item.locked { opacity: 0.25; }
+    .badge-circle {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; transition: all 0.3s;
+    }
+    .badge-circle.unlocked { background: #1a3a1a; border: 2px solid #3a7a3a; box-shadow: 0 0 12px #6BAF8240; }
+    .badge-circle.locked-c { background: #131f13; border: 2px solid #1e2e1e; }
+    .badge-label { font-size: 9px; color: #4a6a4a; text-align: center; font-weight: 600; max-width: 50px; }
+    .badge-label.unlocked-l { color: #6BAF82; }
+
+    /* ── AI BOX ── */
+    .ai-box {
+      background: linear-gradient(140deg, #080f1e 0%, #120820 100%);
+      border: 1px solid #20204a; border-radius: 12px; padding: 18px; margin-bottom: 12px;
+    }
+    .ai-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 9px; color: #4040a0; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin-bottom: 12px; }
+    .ai-dot { width: 6px; height: 6px; background: #6060c0; border-radius: 50%; animation: pulse 1.5s infinite; }
+    .ai-text { font-size: 13px; color: #a0a0cc; line-height: 1.75; min-height: 44px; }
+    .ai-text.placeholder { color: #2a2a5a; }
+
+    /* ── GOAL SLIDER ── */
+    .goal-num { font-family: 'Instrument Serif', serif; font-size: 36px; color: #5DBE8A; }
+    .goal-unit { font-size: 12px; color: #4a6a4a; margin-left: 6px; }
+    input[type=range] { width: 100%; accent-color: #5DBE8A; cursor: pointer; margin: 8px 0; }
+    .goal-meta { display: flex; justify-content: space-between; font-size: 10px; color: #4a6a4a; }
+
+    /* ── HISTORY ── */
+    .hist-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #121e12; font-size: 11px; }
+    .hist-row:last-child { border-bottom: none; }
+    .hist-date { color: #4a6a4a; }
+
+    /* ── COMPARE ROW ── */
+    .cmp-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .cmp-lbl { font-size: 10px; color: #5a7a5a; width: 80px; flex-shrink: 0; }
+
+    /* ── EMPTY ── */
+    .empty { text-align: center; padding: 48px 20px; color: #2d4a2d; font-size: 12px; line-height: 1.8; }
+    .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+    /* ── MISC ── */
+    .pulse-dot { display: inline-block; width: 6px; height: 6px; background: #5DBE8A; border-radius: 50%; animation: pulse 1.5s infinite; }
+    .divider { border: none; border-top: 1px solid #121e12; margin: 2px 0 8px; }
+    .ref-row { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: flex-start; }
+    .ref-name { font-size: 12px; color: #c0d4c0; font-weight: 600; }
+    .ref-note { font-size: 10px; color: #4a6a4a; }
+    .ref-val  { font-size: 13px; font-weight: 700; color: #7a9a7a; }
+    .fact-row { font-size: 11px; color: #5a7a5a; margin-bottom: 9px; line-height: 1.55; display: flex; gap: 7px; }
+    .fact-arrow { color: #5DBE8A; flex-shrink: 0; }
+    .snapshot-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .snapshot-lbl { font-size: 12px; color: #7a9a7a; }
+    .offset-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .offset-num { font-family: 'Instrument Serif', serif; font-size: 18px; font-weight: 700; color: #5DBE8A; }
+    .offset-lbl { font-size: 11px; color: #4a6a4a; }
+
+    /* ── ANIMATIONS ── */
+    @keyframes pulse    { 0%,100%{opacity:1;} 50%{opacity:.25;} }
+    @keyframes toastIn  { from{opacity:0;transform:translateY(-8px);} to{opacity:1;transform:translateY(0);} }
+    @keyframes fadeIn   { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:translateY(0);} }
+  </style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div>
+      <div class="logo">🌿 Ecostep</div>
+      <div class="logo-sub">Carbon footprint tracker</div>
+    </div>
+    <div class="snap-badge">
+      <span class="pulse-dot"></span>
+      <span id="snap-count">0 snapshots</span>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-left">
+      <div class="hero-eyebrow">Estimated annual CO₂</div>
+      <div class="hero-num" id="hero-num" style="color:#4a6a4a">–</div>
+      <div id="hero-pill" class="hero-pill" style="background:#4a6a4a18;color:#4a6a4a">⬤ Enter data</div>
+      <div class="goal-bar-wrap" id="goal-bar-wrap" style="display:none">
+        <div class="goal-bar-meta">
+          <span>vs goal (<span id="goal-bar-label">2.5t</span>)</span>
+          <span id="goal-bar-diff" style="color:#5DBE8A"></span>
+        </div>
+        <div class="pbar-track"><div class="pbar-fill" id="goal-pbar" style="width:0%;background:#5DBE8A"></div></div>
+      </div>
+    </div>
+    <svg id="gauge-svg" width="128" height="128">
+      <circle cx="64" cy="64" r="54" fill="none" stroke="#162016" stroke-width="12"/>
+      <circle cx="64" cy="64" r="54" fill="none" stroke="#1e2e1e" stroke-width="12"/>
+      <circle id="gauge-arc" cx="64" cy="64" r="54" fill="none" stroke="#4a6a4a" stroke-width="12"
+        stroke-dasharray="0 339.3" stroke-linecap="round" transform="rotate(-90 64 64)"
+        style="transition:stroke-dasharray 0.7s cubic-bezier(.4,0,.2,1),stroke 0.4s"/>
+      <text id="gauge-label" x="64" y="56" text-anchor="middle" fill="#e8f0e8" font-size="15"
+        font-weight="700" font-family="'Space Grotesk',sans-serif">0kg</text>
+      <text x="64" y="74" text-anchor="middle" fill="#4a6a4a" font-size="9"
+        font-family="'Space Grotesk',sans-serif">CO₂ / year</text>
+      <text id="gauge-pct" x="64" y="88" text-anchor="middle" fill="#4a6a4a" font-size="8"
+        font-weight="600" font-family="'Space Grotesk',sans-serif">0% of max</text>
+    </svg>
+  </div>
+
+  <!-- PERIOD -->
+  <div class="period-row">
+    <button class="p-btn on" data-period="week"  onclick="setPeriod('week')">Per week</button>
+    <button class="p-btn"    data-period="month" onclick="setPeriod('month')">Per month</button>
+    <button class="p-btn"    data-period="year"  onclick="setPeriod('year')">Per year</button>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn on" onclick="setTab(0)"><span class="ticon">📝</span>Log</button>
+    <button class="tab-btn"    onclick="setTab(1)"><span class="ticon">📊</span>Stats</button>
+    <button class="tab-btn"    onclick="setTab(2)"><span class="ticon">🎯</span>Goals</button>
+    <button class="tab-btn"    onclick="setTab(3)"><span class="ticon">💡</span>Reduce</button>
+    <button class="tab-btn"    onclick="setTab(4)"><span class="ticon">✦</span>AI</button>
+  </div>
+
+  <!-- ════ TAB 0: LOG ════ -->
+  <div id="tab-0" class="tab-panel active sec"></div>
+
+  <!-- ════ TAB 1: STATS ════ -->
+  <div id="tab-1" class="tab-panel sec"></div>
+
+  <!-- ════ TAB 2: GOALS ════ -->
+  <div id="tab-2" class="tab-panel sec">
+    <div class="card">
+      <div class="card-title">Set your annual CO₂ goal</div>
+      <div style="text-align:center;margin-bottom:16px">
+        <span class="goal-num" id="goal-display">2.5t</span>
+        <span class="goal-unit">target / year</span>
+      </div>
+      <input type="range" min="500" max="10000" step="100" value="2500" id="goal-slider" oninput="onGoalChange(this.value)"/>
+      <div class="goal-meta"><span>500kg (exceptional)</span><span>10t (high)</span></div>
+    </div>
+    <div class="card" id="goal-progress-card" style="display:none">
+      <div class="card-title">Progress to goal</div>
+      <div class="snapshot-row">
+        <span class="snapshot-lbl">Your footprint</span>
+        <span id="goal-prog-val" style="font-size:13px;font-weight:700"></span>
+      </div>
+      <div class="pbar-track"><div class="pbar-fill" id="goal-prog-bar" style="width:0%"></div></div>
+      <div id="goal-prog-msg" style="margin-top:10px;font-size:12px;color:#5a7a5a;line-height:1.6"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Reference points</div>
+      <div class="ref-row"><div><div class="ref-name">Paris Agreement 2030</div><div class="ref-note">Global per-capita target</div></div><div class="ref-val">2t</div></div>
+      <div class="ref-row"><div><div class="ref-name">Global average</div><div class="ref-note">Current world average</div></div><div class="ref-val">4t</div></div>
+      <div class="ref-row"><div><div class="ref-name">India average</div><div class="ref-note">One of the lowest</div></div><div class="ref-val">1.8t</div></div>
+      <div class="ref-row"><div><div class="ref-name">US average</div><div class="ref-note">One of the highest</div></div><div class="ref-val">14t</div></div>
+    </div>
+  </div>
+
+  <!-- ════ TAB 3: REDUCE ════ -->
+  <div id="tab-3" class="tab-panel sec"></div>
+
+  <!-- ════ TAB 4: AI ════ -->
+  <div id="tab-4" class="tab-panel sec">
+    <div class="ai-box">
+      <div class="ai-badge"><span class="ai-dot"></span> AI Coach · Claude</div>
+      <div class="ai-text placeholder" id="ai-text">Log your activities, then get a personalised insight based on your actual data.</div>
+    </div>
+    <button class="btn-ai" id="ai-btn" onclick="getAI()">✦ Get AI insight</button>
+    <div id="ai-snapshot" style="display:none;margin-top:16px">
+      <div class="card">
+        <div class="card-title">Your current snapshot</div>
+        <div class="snapshot-row"><span class="snapshot-lbl">Annual footprint</span><span id="snap-total" style="font-size:14px;font-weight:700"></span></div>
+        <div class="snapshot-row" id="snap-top-row"><span class="snapshot-lbl">Biggest source</span><span id="snap-top" style="font-size:12px;font-weight:700"></span></div>
+        <div class="snapshot-row"><span class="snapshot-lbl">vs. Paris target</span><span id="snap-paris" style="font-size:12px;font-weight:700"></span></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:10px">
+      <div class="card-title">Emissions facts</div>
+      <div class="fact-row"><span class="fact-arrow">→</span>A transatlantic flight emits ~600kg CO₂ — 3 months of average driving.</div>
+      <div class="fact-row"><span class="fact-arrow">→</span>Beef produces 20× more CO₂ per 100g protein than tofu.</div>
+      <div class="fact-row"><span class="fact-arrow">→</span>Switching to an EV saves ~1.5 tonnes of CO₂ per year vs. a petrol car.</div>
+      <div class="fact-row"><span class="fact-arrow">→</span>The average Indian emits 1.8t/yr — well below the Paris target.</div>
+      <div class="fact-row"><span class="fact-arrow">→</span>Data centres generate ~1% of global electricity demand.</div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════════════════════
+const CATEGORIES = {
+  transport: {
+    label:"Transport", icon:"🚗", col
